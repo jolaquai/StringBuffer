@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36408.4
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StringBuffer", "StringBuffer\StringBuffer.csproj", "{3032ABE0-1B04-4B15-AA9F-C5D8E668D7AF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{089100B1-113F-4E66-888A-E83F3999EAFD}"
+	ProjectSection(SolutionItems) = preProject
+		readme.md = readme.md
+		unlicense.md = unlicense.md
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StringBuffer.Tests", "StringBuffer.Tests\StringBuffer.Tests.csproj", "{5D63EC7D-F9B5-45BF-A661-9615C1EC7388}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3032ABE0-1B04-4B15-AA9F-C5D8E668D7AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3032ABE0-1B04-4B15-AA9F-C5D8E668D7AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3032ABE0-1B04-4B15-AA9F-C5D8E668D7AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3032ABE0-1B04-4B15-AA9F-C5D8E668D7AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5D63EC7D-F9B5-45BF-A661-9615C1EC7388}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D63EC7D-F9B5-45BF-A661-9615C1EC7388}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D63EC7D-F9B5-45BF-A661-9615C1EC7388}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D63EC7D-F9B5-45BF-A661-9615C1EC7388}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D914FB7B-892D-4C1B-BD20-CC706BE8AE9C}
+	EndGlobalSection
+EndGlobal

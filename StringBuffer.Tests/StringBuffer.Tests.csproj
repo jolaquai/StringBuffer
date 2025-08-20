@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <IsTestProject>True</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+      <PackageReference Include="xunit.v3" Version="3.0.1"/>
+
+      <ProjectReference Include="$(SolutionDir)StringBuffer/StringBuffer.csproj"/>
+  </ItemGroup>
+
+</Project>
