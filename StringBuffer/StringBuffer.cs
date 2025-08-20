@@ -169,6 +169,7 @@ public sealed partial class StringBuffer
             index++;
         }
     }
+    // TODO: Fix this span shit, will probably have to go the struct-based enumerator route...
     /// <summary>
     /// Enumerates all indices of a specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> in the buffer, starting from the specified index.
     /// </summary>
