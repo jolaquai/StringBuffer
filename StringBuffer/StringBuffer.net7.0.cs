@@ -14,6 +14,8 @@ public partial class StringBuffer
     /// <param name="to">The replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.</param>
     public void Replace(Regex regex, ReadOnlySpan<char> to)
     {
+        ArgumentNullException.ThrowIfNull(regex);
+
         foreach (var vm in regex.EnumerateMatches(Span))
         {
             ReplaceCore(vm.Index, vm.Length, to);
@@ -27,6 +29,8 @@ public partial class StringBuffer
     /// <param name="to">The replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.</param>
     public void ReplaceAll(Regex regex, ReadOnlySpan<char> to)
     {
+        ArgumentNullException.ThrowIfNull(regex);
+
         var currentEnumerator = regex.EnumerateMatches(Span);
         foreach (var vm in currentEnumerator)
         {
@@ -35,7 +39,7 @@ public partial class StringBuffer
             if (to.Length != vm.Length)
             {
                 // If the replacement length is different, we need a new enumerator
-                currentEnumerator = regex.EnumerateMatches(Span, vm.Index + 1);
+                currentEnumerator = regex.EnumerateMatches(Span, vm.Index + to.Length);
             }
         }
     }
@@ -48,9 +52,17 @@ public partial class StringBuffer
     /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer.</param>
     public void Replace(Regex regex, int bufferSize, StringBufferWriter writeReplacementAction)
     {
-        if (bufferSize is <= 0)
+        ArgumentNullException.ThrowIfNull(regex);
+        if (bufferSize < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size must be greater than zero.");
+            throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size must be non-negative.");
+        }
+
+        // Specifying length == 0 is... weird, but we allow it for consistency
+        if (bufferSize == 0)
+        {
+            Replace(regex, default);
+            return;
         }
 
         Span<char> buffer = bufferSize <= SafeCharStackalloc ? stackalloc char[bufferSize] : new char[bufferSize];
@@ -75,10 +87,18 @@ public partial class StringBuffer
     /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements or, consequently, retain any content from the previous iteration.</param>
     public void ReplaceAll(Regex regex, int bufferSize, StringBufferWriter writeReplacementAction)
     {
-        if (bufferSize is <= 0)
+        ArgumentNullException.ThrowIfNull(regex);
+        if (bufferSize < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size must be greater than zero.");
+            throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size must be non-negative.");
         }
+
+        if (bufferSize == 0)
+        {
+            Replace(regex, default);
+            return;
+        }
+
         Span<char> buffer = bufferSize <= SafeCharStackalloc ? stackalloc char[bufferSize] : new char[bufferSize];
         var currentEnumerator = regex.EnumerateMatches(Span);
         foreach (var vm in currentEnumerator)
@@ -94,7 +114,7 @@ public partial class StringBuffer
             if (buffer.Length != vm.Length)
             {
                 // If the replacement length is different, we need a new enumerator
-                currentEnumerator = regex.EnumerateMatches(Span, vm.Index + 1);
+                currentEnumerator = regex.EnumerateMatches(Span, vm.Index + to.Length);
             }
         }
     }
@@ -106,7 +126,12 @@ public partial class StringBuffer
     /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer.</param>
     public void ReplaceExact(Regex regex, int length, StringBufferWriter writeReplacementAction)
     {
-        // Specifying length == 0 is... weird, but we allow it for consistency
+        ArgumentNullException.ThrowIfNull(regex);
+        if (length < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length), "Length must be non-negative.");
+        }
+
         if (length == 0)
         {
             Replace(regex, default);
@@ -129,6 +154,12 @@ public partial class StringBuffer
     /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements.</param>
     public void ReplaceAllExact(Regex regex, int length, StringBufferWriter writeReplacementAction)
     {
+        ArgumentNullException.ThrowIfNull(regex);
+        if (length < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length), "Length must be non-negative.");
+        }
+
         if (length == 0)
         {
             ReplaceAll(regex, default);
@@ -144,7 +175,7 @@ public partial class StringBuffer
             if (buffer.Length != vm.Length)
             {
                 // If the replacement length is different, we need a new enumerator
-                currentEnumerator = regex.EnumerateMatches(Span, vm.Index + 1);
+                currentEnumerator = regex.EnumerateMatches(Span, vm.Index + buffer.Length);
             }
         }
     }
