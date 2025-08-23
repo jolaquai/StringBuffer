@@ -94,11 +94,11 @@ public sealed partial class StringBuffer
     /// </summary>
     public const int MaxCapacity = int.MaxValue;
     private const int DefaultCapacity = 256;
-    private const int SafeCharStackalloc = 256; 
+    private const int SafeCharStackalloc = 256;
     #endregion
 
     #region Instance fields
-    private char[] buffer; 
+    private char[] buffer;
     #endregion
 
     #region Props/Indexers
@@ -503,32 +503,105 @@ public sealed partial class StringBuffer
     /// Trims the specified <see langword="char"/> from both ends of the buffer.
     /// </summary>
     /// <param name="value">The <see langword="char"/> to trim.</param>
-    public void Trim(char value) => throw new NotImplementedException();
+    public void Trim(char value)
+    {
+        // TrimEnd first since that will never require moving data
+        TrimEnd(value);
+        TrimStart(value);
+    }
     /// <summary>
     /// Trims any of the specified <see langword="char"/>s from both ends of the buffer.
     /// </summary>
     /// <param name="values">The <see langword="char"/>s to trim.</param>
-    public void Trim(ReadOnlySpan<char> values) => throw new NotImplementedException();
+    public void Trim(ReadOnlySpan<char> values)
+    {
+        TrimEnd(values);
+        TrimStart(values);
+    }
     /// <summary>
     /// Trims the specified <see langword="char"/> from the start of the buffer.
     /// </summary>
     /// <param name="value">The <see langword="char"/> to trim from the start.</param>
-    public void TrimStart(char value) => throw new NotImplementedException();
+    public void TrimStart(char value)
+    {
+        if (Length == 0)
+        {
+            return;
+        }
+        var span = Span;
+        var start = 0;
+        while (start < span.Length && span[start] == value)
+        {
+            start++;
+        }
+        if (start > 0)
+        {
+            var remaining = span[start..];
+            remaining.CopyTo(span);
+            Length -= start;
+        }
+    }
     /// <summary>
     /// Trims any of the specified <see langword="char"/>s from the start of the buffer.
     /// </summary>
     /// <param name="values">The <see langword="char"/>s to trim from the start.</param>
-    public void TrimStart(ReadOnlySpan<char> values) => throw new NotImplementedException();
+    public void TrimStart(ReadOnlySpan<char> values)
+    {
+        if (Length == 0)
+        {
+            return;
+        }
+        var span = Span;
+        var start = 0;
+        while (start < span.Length && values.IndexOf(span[start]) >= 0)
+        {
+            start++;
+        }
+        if (start > 0)
+        {
+            var remaining = span[start..];
+            remaining.CopyTo(span);
+            Length -= start;
+        }
+    }
     /// <summary>
     /// Trims the specified <see langword="char"/> from the end of the buffer.
     /// </summary>
     /// <param name="value">The <see langword="char"/> to trim from the end.</param>
-    public void TrimEnd(char value) => throw new NotImplementedException();
+    public void TrimEnd(char value)
+    {
+        if (Length == 0)
+        {
+            return;
+        }
+
+        var span = Span;
+        var end = span.Length - 1;
+        while (end >= 0 && span[end] == value)
+        {
+            end--;
+        }
+        Length = end + 1;
+    }
     /// <summary>
     /// Trims any of the specified <see langword="char"/>s from the end of the buffer.
     /// </summary>
     /// <param name="values">The <see langword="char"/>s to trim from the end.</param>
-    public void TrimEnd(ReadOnlySpan<char> values) => throw new NotImplementedException();
+    public void TrimEnd(ReadOnlySpan<char> values)
+    {
+        if (Length == 0)
+        {
+            return;
+        }
+
+        var span = Span;
+        var end = span.Length;
+        while (end >= 0 && values.IndexOf(span[end]) >= 0)
+        {
+            end--;
+        }
+        Length = end + 1;
+    }
     /// <summary>
     /// Trims the specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> from both ends of the buffer.
     /// </summary>
@@ -536,7 +609,11 @@ public sealed partial class StringBuffer
     /// <remarks>
     /// To treat each <see langword="char"/> in the <see cref="ReadOnlySpan{T}"/> as a separate value, use <see cref="Trim(ReadOnlySpan{char})"/>.
     /// </remarks>
-    public void TrimSequence(ReadOnlySpan<char> value) => throw new NotImplementedException();
+    public void TrimSequence(ReadOnlySpan<char> value)
+    {
+        TrimSequenceEnd(value);
+        TrimSequenceStart(value);
+    }
     /// <summary>
     /// Trims the specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> from the start of the buffer.
     /// </summary>
@@ -544,7 +621,31 @@ public sealed partial class StringBuffer
     /// <remarks>
     /// To treat each <see langword="char"/> in the <see cref="ReadOnlySpan{T}"/> as a separate value, use <see cref="TrimStart(ReadOnlySpan{char})"/>.
     /// </remarks>
-    public void TrimSequenceStart(ReadOnlySpan<char> value) => throw new NotImplementedException();
+    public void TrimSequenceStart(ReadOnlySpan<char> value)
+    {
+        if (value.Length == 1)
+        {
+            TrimStart(value[0]);
+            return;
+        }
+        if (Length < value.Length || value.Length == 0)
+        {
+            return;
+        }
+
+        var span = Span;
+        var start = 0;
+        while (start <= span.Length - value.Length && span.Slice(start, value.Length).SequenceEqual(value))
+        {
+            start += value.Length;
+        }
+        if (start > 0)
+        {
+            var remaining = span[start..];
+            remaining.CopyTo(span);
+            Length -= start;
+        }
+    }
     /// <summary>
     /// Trims the specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> from the end of the buffer.
     /// </summary>
@@ -552,7 +653,26 @@ public sealed partial class StringBuffer
     /// <remarks>
     /// To treat each <see langword="char"/> in the <see cref="ReadOnlySpan{T}"/> as a separate value, use <see cref="TrimEnd(ReadOnlySpan{char})"/>.
     /// </remarks>
-    public void TrimSequenceEnd(ReadOnlySpan<char> value) => throw new NotImplementedException();
+    public void TrimSequenceEnd(ReadOnlySpan<char> value)
+    {
+        if (value.Length == 1)
+        {
+            TrimEnd(value[0]);
+            return;
+        }
+        if (Length < value.Length || value.Length == 0)
+        {
+            return;
+        }
+
+        var span = Span;
+        var end = span.Length - value.Length;
+        while (end >= 0 && span.Slice(end, value.Length).SequenceEqual(value))
+        {
+            end -= value.Length;
+        }
+        Length = end + value.Length;
+    }
     #endregion
 
     #region Length mods
