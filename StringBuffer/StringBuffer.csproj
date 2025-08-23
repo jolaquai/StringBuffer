@@ -19,27 +19,13 @@
       <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">True</GeneratePackageOnBuild>
   </PropertyGroup>
 
-  <ItemGroup>
-      <None Include="StringBuffer.net6.0.cs" />
-      <None Include="StringBuffer.net7.0.cs" />
-      <Compile Remove="StringBuffer.net6.0.cs" />
-      <Compile Remove="StringBuffer.net7.0.cs" />
-  </ItemGroup>
-
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
       <PackageReference Include="System.Memory" Version="4.6.3" />
       <PackageReference Include="Microsoft.Bcl.Memory" Version="9.0.8" />
       <PackageReference Include="System.Buffers" Version="4.6.1" />
   </ItemGroup>
-  <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
-      <Compile Include="StringBuffer.net6.0.cs" />
-  </ItemGroup>
-  <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
-      <Compile Include="StringBuffer.net7.0.cs" />
-      <Compile Remove="StringBuffer.Fallback.cs"/>
-  </ItemGroup>
-  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
-      <PackageReference Include="PCRE.NET" Version="1.2.0"/>
+  <ItemGroup>
+      <PackageReference Include="PCRE.NET" Version="1.2.0" />
   </ItemGroup>
 
 </Project>

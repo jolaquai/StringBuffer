@@ -4,6 +4,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
+using PCRE;
+
 namespace StringBuffer;
 
 /// <summary>
@@ -28,6 +30,10 @@ public delegate void StringBufferWriter(Span<char> buffer, ReadOnlySpan<char> ma
 public sealed partial class StringBuffer
 {
     #region Enumerator ref structs
+    /// <summary>
+    /// Used by <see cref="StringBuffer"/> to allow enumeration of indices of a specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> in the buffer, starting from a specified index.
+    /// During the enumeration, modification of the underlying buffer is considered undefined behavior.
+    /// </summary>
     public ref struct UnsafeIndexEnumerator
     {
         private readonly StringBuffer _buffer;
@@ -40,6 +46,10 @@ public sealed partial class StringBuffer
             Current = start;
         }
 
+        /// <summary>
+        /// Advances the enumerator to the next index of the specified value in the buffer.
+        /// </summary>
+        /// <returns><see langword="true"/> if advancement was successful; otherwise, <see langword="false"/>.</returns>
         public bool MoveNext()
         {
             if (Current >= _buffer.Length)
@@ -49,9 +59,19 @@ public sealed partial class StringBuffer
             Current = _buffer.IndexOf(_value, Current);
             return Current != -1;
         }
+        /// <summary>
+        /// Gets the current index of the specified value in the buffer.
+        /// </summary>
         public int Current { get; private set; }
+        /// <summary>
+        /// Returns the enumerator itself.
+        /// </summary>
+        /// <returns>The enumerator itself.</returns>
         public readonly UnsafeIndexEnumerator GetEnumerator() => this;
     }
+    /// <summary>
+    /// Used by <see cref="StringBuffer"/> to allow enumeration of indices of a specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> in the buffer, starting from a specified index.
+    /// </summary>
     public ref struct IndexEnumerator
     {
         private readonly StringBuffer _buffer;
@@ -66,6 +86,11 @@ public sealed partial class StringBuffer
             _hash = XxHash32.Hash(MemoryMarshal.Cast<char, byte>(_buffer.Span));
         }
 
+        /// <summary>
+        /// Advances the enumerator to the next index of the specified value in the buffer.
+        /// </summary>
+        /// <returns>><see langword="true"/> if advancement was successful; otherwise, <see langword="false"/>.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the underlying buffer was modified during enumeration.</exception>
         public bool MoveNext()
         {
             if (Current >= _buffer.Length)
@@ -83,7 +108,14 @@ public sealed partial class StringBuffer
             }
             return true;
         }
+        /// <summary>
+        /// Gets the current index of the specified value in the buffer.
+        /// </summary>
         public int Current { get; private set; }
+        /// <summary>
+        /// Returns the enumerator itself.
+        /// </summary>
+        /// <returns>The enumerator itself.</returns>
         public readonly IndexEnumerator GetEnumerator() => this;
     }
     #endregion
@@ -168,11 +200,54 @@ public sealed partial class StringBuffer
         {
             return;
         }
-        GrowIfNeeded(Length + value.Length);
-        // We just made sure this will fit
-        value.CopyTo(GetWritableSpan());
-        Length += value.Length;
+        value.CopyTo(GetWritableSpan(value.Length));
+        Expand(value.Length);
     }
+    /// <summary>
+    /// Appends a <see cref="string"/> to the end of the buffer.
+    /// </summary>
+    /// <param name="value">The <see cref="string"/> to append.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Append(string value) => Append(value.AsSpan());
+
+#if NET6_0_OR_GREATER
+    /// <summary>
+    /// Appends an <see cref="ISpanFormattable"/> to the end of the buffer.
+    /// </summary>
+    /// <param name="spanFormattable">The <see cref="ISpanFormattable"/> to append.</param>
+    /// <param name="format">The format string to use when formatting the <see cref="ISpanFormattable"/>. If not provided, the default format is used.</param>
+    /// <param name="formatProvider">An <see cref="IFormatProvider"/> to use for formatting. If not provided, the current culture is used.</param>
+    /// <exception cref="InvalidOperationException"></exception>
+    public void Append(ISpanFormattable spanFormattable, ReadOnlySpan<char> format = default, IFormatProvider formatProvider = null)
+    {
+        // Try with the current remaining space first
+        if (TryWriteSpanFormattable(format))
+        {
+            return;
+        }
+
+        // Following the implementation specification of ISpanFormattable, a return of false means there wasn't enough space
+        // Any other failures should throw instead
+        // So we expand the buffer and try again
+        Grow();
+        if (!TryWriteSpanFormattable(format))
+        {
+            throw new InvalidOperationException("Failed to write ISpanFormattable after expanding the buffer once. Something might be wrong with its implementation.");
+        }
+        // If we reach here, it means the spanFormattable was successfully written
+
+        bool TryWriteSpanFormattable(ReadOnlySpan<char> format)
+        {
+            if (spanFormattable.TryFormat(GetWritableSpan(), out var written, format, formatProvider))
+            {
+                Expand(written);
+                return false;
+            }
+
+            return true;
+        }
+    }
+#endif
     #endregion
 
     #region IndexOf/IndicesOf
@@ -292,13 +367,19 @@ public sealed partial class StringBuffer
         {
             // We need to grow the buffer
             GrowIfNeeded(Length + (to.Length - len));
-            // Copy everything after index + len to index + to.Length
+
+            // Must copy BEFORE updating Length, working backwards to avoid overlap
             var remaining = Span[(index + len)..];
-            remaining.CopyTo(Span[(index + to.Length)..]);
+            var newLength = Length + (to.Length - len);
+
+            // Use raw buffer since we need to write beyond current Length
+            remaining.CopyTo(buffer.AsSpan(index + to.Length, remaining.Length));
+
             // Copy the new content to the index
-            to.CopyTo(Span[index..]);
-            // Increase length
-            Length += (to.Length - len);
+            to.CopyTo(buffer.AsSpan(index, to.Length));
+
+            // NOW update length
+            Length = newLength;
         }
     }
     /// <summary>
@@ -453,8 +534,8 @@ public sealed partial class StringBuffer
     /// <summary>
     /// Replaces a specified range of characters in the buffer with a new <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.
     /// </summary>
-    /// <param name="range"></param>
-    /// <param name="to"></param>
+    /// <param name="range">A <see cref="Range"/> that specifies the range to replace.</param>
+    /// <param name="to">The <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> to replace the specified range with.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Replace(Range range, ReadOnlySpan<char> to)
     {
@@ -465,9 +546,9 @@ public sealed partial class StringBuffer
     /// Replaces a specified range of characters in the buffer with a new <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.
     /// </summary>
     /// <param name="index">The starting index of the range to replace.</param>
-    /// <param name="length">The number of characters to replace in the buffer.</param>
+    /// <param name="length">The length of the range to replace.</param>
     /// <param name="to">The <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> to replace the specified range with.</param>
-    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when the range defined by <paramref name="index"/> and <paramref name="length"/> resolves to a location not entirely within the bounds of the used portion of the buffer, or when <paramref name="length"/> is less than or equal to zero.</exception>
     public void Replace(int index, int length, ReadOnlySpan<char> to)
     {
         if (index < 0 || index >= Length || length <= 0 || index + length > Length)
@@ -477,6 +558,380 @@ public sealed partial class StringBuffer
         ReplaceCore(index, length, to);
     }
     #endregion
+
+    #region PcreRegex Replace
+    /// <summary>
+    /// Replaces the first occurrence of a <see cref="PcreRegex"/> match in the buffer with a replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.
+    /// </summary>
+    /// <param name="regex">The <see cref="PcreRegex"/> to match against the buffer.</param>
+    /// <param name="to">The replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.</param>
+    public void Replace(PcreRegex regex, ReadOnlySpan<char> to)
+    {
+        if (regex is null)
+        {
+            throw new ArgumentNullException(nameof(regex), "Regex cannot be null.");
+        }
+
+        var match = regex.Match(Span);
+        ReplaceCore(match.Index, match.Length, to);
+    }
+    /// <summary>
+    /// Replaces all occurrences of a <see cref="PcreRegex"/> match in the buffer with a replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.
+    /// </summary>
+    /// <param name="regex">The <see cref="PcreRegex"/> to match against the buffer.</param>
+    /// <param name="to">The replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.</param>
+    public void ReplaceAll(PcreRegex regex, ReadOnlySpan<char> to)
+    {
+        if (regex is null)
+        {
+            throw new ArgumentNullException(nameof(regex), "Regex cannot be null.");
+        }
+
+        using var matchBuffer = regex.CreateMatchBuffer();
+        PcreRefMatch match;
+        var start = 0;
+        while ((match = matchBuffer.Match(Span, start)).Success)
+        {
+            ReplaceCore(match.Index, match.Length, to);
+            start = match.Index + to.Length; // Move past the current match
+        }
+    }
+    /// <summary>
+    /// Replaces the first occurrence of a <see cref="Regex"/> match in the buffer with a replacement action.
+    /// </summary>
+    /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
+    /// <param name="bufferSize">The maximum length any single replacement will be. The first null character of the end of the supplied buffer marks the end of the replacement.</param>
+    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer.</param>
+    public void Replace(PcreRegex regex, int bufferSize, StringBufferWriter writeReplacementAction)
+    {
+        if (regex is null)
+        {
+            throw new ArgumentNullException(nameof(regex), "Regex cannot be null.");
+        }
+        if (bufferSize < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size must be non-negative.");
+        }
+
+        // Specifying length == 0 is... weird, but we allow it for consistency
+        if (bufferSize == 0)
+        {
+            Replace(regex, default);
+            return;
+        }
+
+        if (writeReplacementAction is null)
+        {
+            throw new ArgumentNullException(nameof(writeReplacementAction), "Write replacement action cannot be null.");
+        }
+
+        Span<char> buffer = bufferSize <= SafeCharStackalloc ? stackalloc char[bufferSize] : new char[bufferSize];
+        var match = regex.Match(Span);
+        writeReplacementAction(buffer, Span.Slice(match));
+        var endIdx = buffer.IndexOf('\0');
+        var to = buffer;
+        if (endIdx > -1)
+        {
+            to = buffer[..endIdx];
+        }
+        ReplaceCore(match.Index, match.Length, to);
+    }
+    /// <summary>
+    /// Replaces all occurrences of a <see cref="Regex"/> match in the buffer with a replacement action.
+    /// </summary>
+    /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
+    /// <param name="bufferSize">The maximum length any single replacement will be. The first null character of the end of the supplied buffer marks the end of the replacement.</param>
+    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements or, consequently, retain any content from the previous iteration.</param>
+    public void ReplaceAll(PcreRegex regex, int bufferSize, StringBufferWriter writeReplacementAction)
+    {
+        if (regex is null)
+        {
+            throw new ArgumentNullException(nameof(regex), "Regex cannot be null.");
+        }
+        if (bufferSize < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size must be non-negative.");
+        }
+
+        if (bufferSize == 0)
+        {
+            Replace(regex, default);
+            return;
+        }
+
+        if (writeReplacementAction is null)
+        {
+            throw new ArgumentNullException(nameof(writeReplacementAction), "Write replacement action cannot be null.");
+        }
+
+        using var matchBuffer = regex.CreateMatchBuffer();
+        Span<char> buffer = bufferSize <= SafeCharStackalloc ? stackalloc char[bufferSize] : new char[bufferSize];
+        PcreRefMatch match;
+        var start = 0;
+        while ((match = matchBuffer.Match(Span, start)).Success)
+        {
+            writeReplacementAction(buffer, Span.Slice(match));
+            var endIdx = buffer.IndexOf('\0');
+            var to = buffer;
+            if (endIdx > -1)
+            {
+                to = buffer[..endIdx];
+            }
+            ReplaceCore(match.Index, match.Length, to);
+            start = match.Index + to.Length; // Move past the current match
+        }
+    }
+    /// <summary>
+    /// Replaces the first occurrence of a <see cref="Regex"/> match in the buffer with a replacement action. The length of that replacement is fixed to the specified length.
+    /// </summary>
+    /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
+    /// <param name="length">The exact length of the replacement content.</param>
+    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer.</param>
+    public void ReplaceExact(PcreRegex regex, int length, StringBufferWriter writeReplacementAction)
+    {
+        if (regex is null)
+        {
+            throw new ArgumentNullException(nameof(regex), "Regex cannot be null.");
+        }
+        if (length < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length), "Replacement length must be non-negative.");
+        }
+
+        if (length == 0)
+        {
+            Replace(regex, default);
+            return;
+        }
+
+        if (writeReplacementAction is null)
+        {
+            throw new ArgumentNullException(nameof(writeReplacementAction), "Write replacement action cannot be null.");
+        }
+
+        Span<char> buffer = length <= SafeCharStackalloc ? stackalloc char[length] : new char[length];
+        var match = regex.Match(Span);
+
+        writeReplacementAction(buffer, Span.Slice(match));
+        ReplaceCore(match.Index, match.Length, buffer);
+    }
+    /// <summary>
+    /// Replaces all occurrences of a <see cref="Regex"/> match in the buffer with a replacement action. The length of that replacement is fixed to the specified length.
+    /// </summary>
+    /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
+    /// <param name="length">The exact length of the replacement content.</param>
+    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements.</param>
+    public void ReplaceAllExact(PcreRegex regex, int length, StringBufferWriter writeReplacementAction)
+    {
+        if (regex is null)
+        {
+            throw new ArgumentNullException(nameof(regex), "Regex cannot be null.");
+        }
+        if (length < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length), "Replacement length must be non-negative.");
+        }
+
+        if (length == 0)
+        {
+            ReplaceAll(regex, default);
+            return;
+        }
+
+        if (writeReplacementAction is null)
+        {
+            throw new ArgumentNullException(nameof(writeReplacementAction), "Write replacement action cannot be null.");
+        }
+
+        using var matchBuffer = regex.CreateMatchBuffer();
+        Span<char> buffer = length <= SafeCharStackalloc ? stackalloc char[length] : new char[length];
+        PcreRefMatch match;
+        var start = 0;
+        while ((match = matchBuffer.Match(Span, start)).Success)
+        {
+            writeReplacementAction(buffer, Span.Slice(match));
+            ReplaceCore(match.Index, match.Length, buffer);
+            start = match.Index + buffer.Length; // Move past the current match
+        }
+    }
+    #endregion
+
+#if NET7_0_OR_GREATER
+    #region Regex Replace
+    /// <summary>
+    /// Replaces the first occurrence of a <see cref="Regex"/> match in the buffer with a replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.
+    /// </summary>
+    /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
+    /// <param name="to">The replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.</param>
+    public void Replace(Regex regex, ReadOnlySpan<char> to)
+    {
+        ArgumentNullException.ThrowIfNull(regex);
+
+        foreach (var vm in regex.EnumerateMatches(Span))
+        {
+            ReplaceCore(vm.Index, vm.Length, to);
+            break;
+        }
+    }
+    /// <summary>
+    /// Replaces all occurrences of a <see cref="Regex"/> match in the buffer with a replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.
+    /// </summary>
+    /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
+    /// <param name="to">The replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.</param>
+    public void ReplaceAll(Regex regex, ReadOnlySpan<char> to)
+    {
+        ArgumentNullException.ThrowIfNull(regex);
+
+        var currentEnumerator = regex.EnumerateMatches(Span);
+        foreach (var vm in currentEnumerator)
+        {
+            // There is unfortunately no easier way to do this since each match may vary in length.
+            ReplaceCore(vm.Index, vm.Length, to);
+            if (to.Length != vm.Length)
+            {
+                // If the replacement length is different, we need a new enumerator
+                currentEnumerator = regex.EnumerateMatches(Span, vm.Index + to.Length);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Replaces the first occurrence of a <see cref="Regex"/> match in the buffer with a replacement action.
+    /// </summary>
+    /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
+    /// <param name="bufferSize">The maximum length any single replacement will be. The first null character of the end of the supplied buffer marks the end of the replacement.</param>
+    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer.</param>
+    public void Replace(Regex regex, int bufferSize, StringBufferWriter writeReplacementAction)
+    {
+        ArgumentNullException.ThrowIfNull(regex);
+        if (bufferSize < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size must be non-negative.");
+        }
+
+        // Specifying length == 0 is... weird, but we allow it for consistency
+        if (bufferSize == 0)
+        {
+            Replace(regex, default);
+            return;
+        }
+
+        Span<char> buffer = bufferSize <= SafeCharStackalloc ? stackalloc char[bufferSize] : new char[bufferSize];
+        foreach (var vm in regex.EnumerateMatches(Span))
+        {
+            writeReplacementAction(buffer, Span.Slice(vm));
+            var endIdx = buffer.IndexOf('\0');
+            var to = buffer;
+            if (endIdx > -1)
+            {
+                to = buffer[..endIdx];
+            }
+            ReplaceCore(vm.Index, vm.Length, to);
+            break;
+        }
+    }
+    /// <summary>
+    /// Replaces all occurrences of a <see cref="Regex"/> match in the buffer with a replacement action.
+    /// </summary>
+    /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
+    /// <param name="bufferSize">The maximum length any single replacement will be. The first null character of the end of the supplied buffer marks the end of the replacement.</param>
+    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements or, consequently, retain any content from the previous iteration.</param>
+    public void ReplaceAll(Regex regex, int bufferSize, StringBufferWriter writeReplacementAction)
+    {
+        ArgumentNullException.ThrowIfNull(regex);
+        if (bufferSize < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size must be non-negative.");
+        }
+
+        if (bufferSize == 0)
+        {
+            Replace(regex, default);
+            return;
+        }
+
+        Span<char> buffer = bufferSize <= SafeCharStackalloc ? stackalloc char[bufferSize] : new char[bufferSize];
+        var currentEnumerator = regex.EnumerateMatches(Span);
+        foreach (var vm in currentEnumerator)
+        {
+            writeReplacementAction(buffer, Span.Slice(vm));
+            var endIdx = buffer.IndexOf('\0');
+            var to = buffer;
+            if (endIdx > -1)
+            {
+                to = buffer[..endIdx];
+            }
+            ReplaceCore(vm.Index, vm.Length, to);
+            if (buffer.Length != vm.Length)
+            {
+                // If the replacement length is different, we need a new enumerator
+                currentEnumerator = regex.EnumerateMatches(Span, vm.Index + to.Length);
+            }
+        }
+    }
+    /// <summary>
+    /// Replaces the first occurrence of a <see cref="Regex"/> match in the buffer with a replacement action. The length of that replacement is fixed to the specified length.
+    /// </summary>
+    /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
+    /// <param name="length">The exact length of the replacement content.</param>
+    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer.</param>
+    public void ReplaceExact(Regex regex, int length, StringBufferWriter writeReplacementAction)
+    {
+        ArgumentNullException.ThrowIfNull(regex);
+        if (length < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length), "Length must be non-negative.");
+        }
+
+        if (length == 0)
+        {
+            Replace(regex, default);
+            return;
+        }
+
+        Span<char> buffer = length <= SafeCharStackalloc ? stackalloc char[length] : new char[length];
+        foreach (var vm in regex.EnumerateMatches(Span))
+        {
+            writeReplacementAction(buffer, Span.Slice(vm));
+            ReplaceCore(vm.Index, vm.Length, buffer);
+            break;
+        }
+    }
+    /// <summary>
+    /// Replaces all occurrences of a <see cref="Regex"/> match in the buffer with a replacement action. The length of that replacement is fixed to the specified length.
+    /// </summary>
+    /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
+    /// <param name="length">The exact length of the replacement content.</param>
+    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements.</param>
+    public void ReplaceAllExact(Regex regex, int length, StringBufferWriter writeReplacementAction)
+    {
+        ArgumentNullException.ThrowIfNull(regex);
+        if (length < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length), "Length must be non-negative.");
+        }
+
+        if (length == 0)
+        {
+            ReplaceAll(regex, default);
+            return;
+        }
+
+        Span<char> buffer = length <= SafeCharStackalloc ? stackalloc char[length] : new char[length];
+        var currentEnumerator = regex.EnumerateMatches(Span);
+        foreach (var vm in currentEnumerator)
+        {
+            writeReplacementAction(buffer, Span.Slice(vm));
+            ReplaceCore(vm.Index, vm.Length, buffer);
+            if (buffer.Length != vm.Length)
+            {
+                // If the replacement length is different, we need a new enumerator
+                currentEnumerator = regex.EnumerateMatches(Span, vm.Index + buffer.Length);
+            }
+        }
+    }
+    #endregion
+#endif
 
     #region Remove
     /// <summary>
@@ -765,12 +1220,23 @@ public sealed partial class StringBuffer
     /// <summary>
     /// Initializes a new <see cref="StringBuffer"/> with the default capacity of 256.
     /// </summary>
-    public StringBuffer() : this(default, DefaultCapacity) { }
+    public StringBuffer() : this(ReadOnlySpan<char>.Empty, DefaultCapacity) { }
     /// <summary>
     /// Initializes a new <see cref="StringBuffer"/> with the specified capacity.
     /// </summary>
     /// <param name="capacity">The initial capacity of the buffer's backing array.</param>
-    public StringBuffer(int capacity) : this(default, capacity) { }
+    public StringBuffer(int capacity) : this(ReadOnlySpan<char>.Empty, capacity) { }
+    /// <summary>
+    /// Initializes a new <see cref="StringBuffer"/> with the specified initial content.
+    /// </summary>
+    /// <param name="initialContent">A <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> that will be copied into the buffer.</param>
+    public StringBuffer(string initialContent) : this(initialContent.AsSpan(), initialContent.Length) { }
+    /// <summary>
+    /// Initializes a new <see cref="StringBuffer"/> with the specified initial content and capacity.
+    /// </summary>
+    /// <param name="initialContent">The initial content to copy into the buffer.</param>
+    /// <param name="capacity">The initial capacity of the buffer's backing array. Must not be less than the length of <paramref name="initialContent"/>.</param>
+    public StringBuffer(string initialContent, int capacity) : this(initialContent.AsSpan(), capacity) { }
     /// <summary>
     /// Initializes a new <see cref="StringBuffer"/> with the specified initial content.
     /// </summary>
@@ -863,6 +1329,17 @@ public sealed partial class StringBuffer
     /// </summary>
     /// <returns>The <see langword="string"/> representation of the current buffer contents.</returns>
     public override string ToString() => Span.ToString();
+}
+
+internal static class Extensions
+{
+    public static ReadOnlySpan<T> Slice<T>(this ReadOnlySpan<T> span, PcreRefMatch match) => span.Slice(match.Index, match.Length);
+    public static Span<T> Slice<T>(this Span<T> span, PcreRefMatch match) => span.Slice(match.Index, match.Length);
+
+#if NET7_0_OR_GREATER
+    public static ReadOnlySpan<T> Slice<T>(this ReadOnlySpan<T> span, ValueMatch vm) => span.Slice(vm.Index, vm.Length);
+    public static Span<T> Slice<T>(this Span<T> span, ValueMatch vm) => span.Slice(vm.Index, vm.Length);
+#endif
 }
 
 /// <summary>

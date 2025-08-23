@@ -2,14 +2,16 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>netstandard2.0;net6.0;net7.0</TargetFrameworks>
+    <TargetFrameworks>net9.0</TargetFrameworks>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <IsTestProject>True</IsTestProject>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
       <PackageReference Include="xunit.v3" Version="3.0.1"/>
+      <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/>
 
       <ProjectReference Include="$(SolutionDir)StringBuffer/StringBuffer.csproj"/>
   </ItemGroup>
