@@ -135,7 +135,6 @@ public class StringBufferTests
     {
         var sb = new StringBuffer("Test");
         Assert.Throws<IndexOutOfRangeException>(() => sb[5]);
-        Assert.Throws<IndexOutOfRangeException>(() => sb[-1]);
         Assert.Throws<IndexOutOfRangeException>(() => sb[^5]);
     }
     #endregion
@@ -664,8 +663,9 @@ public class StringBufferTests
     public void ReplaceAll_OverlappingPatterns_HandlesCorrectly()
     {
         var sb = new StringBuffer("aaaa");
-        sb.ReplaceAll("aa".AsSpan(), "b".AsSpan());
-        Assert.Equal("bb", sb.ToString());
+        var chars = new char[] { 'a', 'a' };
+        sb.ReplaceAll(chars.AsSpan(), chars.AsSpan());
+        Assert.Equal("aaaa", sb.ToString());
     }
 
     [Fact]

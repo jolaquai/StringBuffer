@@ -38,12 +38,13 @@ public sealed partial class StringBuffer
     {
         private readonly StringBuffer _buffer;
         private readonly ReadOnlySpan<char> _value;
+        private int nextSearchIndex;
 
         internal UnsafeIndexEnumerator(StringBuffer buffer, ReadOnlySpan<char> value, int start)
         {
             _buffer = buffer;
             _value = value;
-            Current = start;
+            nextSearchIndex = start;
         }
 
         /// <summary>
@@ -52,17 +53,23 @@ public sealed partial class StringBuffer
         /// <returns><see langword="true"/> if advancement was successful; otherwise, <see langword="false"/>.</returns>
         public bool MoveNext()
         {
-            if (Current >= _buffer.Length)
+            if (nextSearchIndex >= _buffer.Length)
             {
                 return false;
             }
-            Current = _buffer.IndexOf(_value, Current);
-            return Current != -1;
+            var index = _buffer.IndexOf(_value, nextSearchIndex);
+            if (index != -1)
+            {
+                Current = index;
+                nextSearchIndex = index + 1;
+                return true;
+            }
+            return false;
         }
         /// <summary>
         /// Gets the current index of the specified value in the buffer.
         /// </summary>
-        public int Current { get; private set; }
+        public int Current { get; private set; } = -1;
         /// <summary>
         /// Returns the enumerator itself.
         /// </summary>
@@ -77,12 +84,14 @@ public sealed partial class StringBuffer
         private readonly StringBuffer _buffer;
         private readonly ReadOnlySpan<char> _value;
         private readonly uint _hash;
+        private int nextSearchIndex;
 
         internal IndexEnumerator(StringBuffer buffer, ReadOnlySpan<char> value, int start)
         {
             _buffer = buffer;
             _value = value;
-            Current = start;
+            Current = -1;
+            nextSearchIndex = start;
             _hash = XxHash32.Hash(MemoryMarshal.Cast<char, byte>(_buffer.Span));
         }
 
@@ -93,20 +102,24 @@ public sealed partial class StringBuffer
         /// <exception cref="InvalidOperationException">Thrown when the underlying buffer was modified during enumeration.</exception>
         public bool MoveNext()
         {
-            if (Current >= _buffer.Length)
+            if (nextSearchIndex >= _buffer.Length)
             {
                 return false;
             }
-            Current = _buffer.IndexOf(_value, Current);
-            if (Current == -1)
+
+            var index = _buffer.IndexOf(_value, nextSearchIndex);
+            if (index != -1)
             {
-                return false;
+                if (_hash != XxHash32.Hash(MemoryMarshal.Cast<char, byte>(_buffer.Span)))
+                {
+                    throw new InvalidOperationException("The buffer was modified; enumeration may not continue.");
+                }
+
+                Current = index;
+                nextSearchIndex = index + 1;
+                return true;
             }
-            if (_hash != XxHash32.Hash(MemoryMarshal.Cast<char, byte>(_buffer.Span)))
-            {
-                throw new InvalidOperationException("The buffer was modified during enumeration.");
-            }
-            return true;
+            return false;
         }
         /// <summary>
         /// Gets the current index of the specified value in the buffer.
@@ -161,19 +174,27 @@ public sealed partial class StringBuffer
     {
         get
         {
+            if (index.Value < 0)
+            {
+                throw new IndexOutOfRangeException($"Index ({index}) must be within the bounds of the used portion of the buffer.");
+            }
             var offset = index.GetOffset(Length);
             if (offset < 0 || offset >= Length)
             {
-                throw new IndexOutOfRangeException($"Index ({offset}) must be within the bounds of the used portion of the buffer.");
+                throw new IndexOutOfRangeException($"Index ({index}) must be within the bounds of the used portion of the buffer.");
             }
             return buffer[offset];
         }
         set
         {
+            if (index.Value < 0)
+            {
+                throw new IndexOutOfRangeException($"Index ({index}) must be within the bounds of the used portion of the buffer.");
+            }
             var offset = index.GetOffset(Length);
             if (offset < 0 || offset >= Length)
             {
-                throw new IndexOutOfRangeException($"Index ({offset}) must be within the bounds of the used portion of the buffer.");
+                throw new IndexOutOfRangeException($"Index ({index}) must be within the bounds of the used portion of the buffer.");
             }
             buffer[offset] = value;
         }
@@ -241,10 +262,10 @@ public sealed partial class StringBuffer
             if (spanFormattable.TryFormat(GetWritableSpan(), out var written, format, formatProvider))
             {
                 Expand(written);
-                return false;
+                return true;
             }
 
-            return true;
+            return false;
         }
     }
 #endif
@@ -258,7 +279,20 @@ public sealed partial class StringBuffer
     /// <param name="start">At which index in the buffer to start searching.</param>
     /// <returns>The index of the first occurrence of <paramref name="value"/> in the buffer, or <c>-1</c> if not found.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int IndexOf(char value, int start = 0) => Span[start..].IndexOf(value);
+    public int IndexOf(char value, int start = 0)
+    {
+        if (start < 0 || start > Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(start), "Start index must be within the bounds of the used portion of the buffer.");
+        }
+
+        var idx = Span[start..].IndexOf(value);
+        if (idx == -1)
+        {
+            return -1;
+        }
+        return start + idx;
+    }
     /// <summary>
     /// Finds the first index of a specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> in the buffer, starting from the specified index.
     /// </summary>
@@ -266,7 +300,20 @@ public sealed partial class StringBuffer
     /// <param name="start">At which index in the buffer to start searching.</param>
     /// <returns>The index of the first occurrence of <paramref name="value"/> in the buffer, or <c>-1</c> if not found.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int IndexOf(ReadOnlySpan<char> value, int start = 0) => Span[start..].IndexOf(value);
+    public int IndexOf(ReadOnlySpan<char> value, int start = 0)
+    {
+        if (start < 0 || start > Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(start), "Start index must be within the bounds of the used portion of the buffer.");
+        }
+
+        var idx = Span[start..].IndexOf(value);
+        if (idx == -1)
+        {
+            return -1;
+        }
+        return start + idx;
+    }
     /// <summary>
     /// Enumerates all indices of a specified <see langword="char"/> in the buffer, starting from the specified index.
     /// </summary>
@@ -1050,7 +1097,7 @@ public sealed partial class StringBuffer
         }
 
         var span = Span;
-        var end = span.Length;
+        var end = span.Length - 1;
         while (end >= 0 && values.IndexOf(span[end]) >= 0)
         {
             end--;
@@ -1254,7 +1301,10 @@ public sealed partial class StringBuffer
             throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity must not be less than the length of the initial content.");
         }
 
-        capacity = initialContent.Length < DefaultCapacity ? DefaultCapacity : initialContent.Length;
+        if (capacity <= DefaultCapacity)
+        {
+            capacity = initialContent.Length < DefaultCapacity ? DefaultCapacity : initialContent.Length;
+        }
         buffer = new char[capacity];
         Length = initialContent.Length;
 
