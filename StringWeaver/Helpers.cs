@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace StringBuffer;
+namespace StringWeaver;
 
 internal static class Helpers
 {

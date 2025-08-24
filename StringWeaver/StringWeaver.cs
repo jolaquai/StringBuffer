@@ -6,20 +6,20 @@ using System.Text.RegularExpressions;
 
 using PCRE;
 
-namespace StringBuffer;
+namespace StringWeaver;
 
 /// <summary>
 /// Represents a method that generates a replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> for a given match <see cref="ReadOnlySpan{T}"/>.
 /// </summary>
 /// <param name="match">The matched <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.</param>
 /// <returns>The replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.</returns>
-public delegate ReadOnlySpan<char> StringBufferReplacementFactory(ReadOnlySpan<char> match);
+public delegate ReadOnlySpan<char> StringWeaverReplacementFactory(ReadOnlySpan<char> match);
 /// <summary>
 /// Represents a method that writes a replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> to a given buffer.
 /// </summary>
 /// <param name="buffer">The buffer to write the replacement <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> to.</param>
 /// <param name="match">The matched <see cref="ReadOnlySpan{T}"/> of <see langword="char"/>.</param>
-public delegate void StringBufferWriter(Span<char> buffer, ReadOnlySpan<char> match);
+public delegate void StringWeaverWriter(Span<char> buffer, ReadOnlySpan<char> match);
 
 /// <summary>
 /// Represents a custom builder for creating <see langword="string"/>s with a mutable, directly accessible buffer and a versatile API for manipulating the contents.
@@ -27,20 +27,20 @@ public delegate void StringBufferWriter(Span<char> buffer, ReadOnlySpan<char> ma
 /// <remarks>
 /// This type is not thread-safe. Concurrent use will result in corrupted data. Access to instances of this type must be synchronized.
 /// </remarks>
-public sealed partial class StringBuffer
+public sealed partial class StringWeaver
 {
     #region Enumerator ref structs
     /// <summary>
-    /// Used by <see cref="StringBuffer"/> to allow enumeration of indices of a specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> in the buffer, starting from a specified index.
+    /// Used by <see cref="StringWeaver"/> to allow enumeration of indices of a specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> in the buffer, starting from a specified index.
     /// During the enumeration, modification of the underlying buffer is considered undefined behavior.
     /// </summary>
     public ref struct UnsafeIndexEnumerator
     {
-        private readonly StringBuffer _buffer;
+        private readonly StringWeaver _buffer;
         private readonly ReadOnlySpan<char> _value;
         private int nextSearchIndex;
 
-        internal UnsafeIndexEnumerator(StringBuffer buffer, ReadOnlySpan<char> value, int start)
+        internal UnsafeIndexEnumerator(StringWeaver buffer, ReadOnlySpan<char> value, int start)
         {
             _buffer = buffer;
             _value = value;
@@ -77,16 +77,16 @@ public sealed partial class StringBuffer
         public readonly UnsafeIndexEnumerator GetEnumerator() => this;
     }
     /// <summary>
-    /// Used by <see cref="StringBuffer"/> to allow enumeration of indices of a specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> in the buffer, starting from a specified index.
+    /// Used by <see cref="StringWeaver"/> to allow enumeration of indices of a specified <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> in the buffer, starting from a specified index.
     /// </summary>
     public ref struct IndexEnumerator
     {
-        private readonly StringBuffer _buffer;
+        private readonly StringWeaver _buffer;
         private readonly ReadOnlySpan<char> _value;
         private readonly uint _hash;
         private int nextSearchIndex;
 
-        internal IndexEnumerator(StringBuffer buffer, ReadOnlySpan<char> value, int start)
+        internal IndexEnumerator(StringWeaver buffer, ReadOnlySpan<char> value, int start)
         {
             _buffer = buffer;
             _value = value;
@@ -135,7 +135,7 @@ public sealed partial class StringBuffer
 
     #region const
     /// <summary>
-    /// The maximum capacity of a single <see cref="StringBuffer"/>.
+    /// The maximum capacity of a single <see cref="StringWeaver"/>.
     /// </summary>
     public const int MaxCapacity = int.MaxValue;
     private const int DefaultCapacity = 256;
@@ -648,8 +648,8 @@ public sealed partial class StringBuffer
     /// </summary>
     /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
     /// <param name="bufferSize">The maximum length any single replacement will be. The first null character of the end of the supplied buffer marks the end of the replacement.</param>
-    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer.</param>
-    public void Replace(PcreRegex regex, int bufferSize, StringBufferWriter writeReplacementAction)
+    /// <param name="writeReplacementAction">A <see cref="StringWeaverWriter"/> that writes the replacement content to the buffer.</param>
+    public void Replace(PcreRegex regex, int bufferSize, StringWeaverWriter writeReplacementAction)
     {
         if (regex is null)
         {
@@ -688,8 +688,8 @@ public sealed partial class StringBuffer
     /// </summary>
     /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
     /// <param name="bufferSize">The maximum length any single replacement will be. The first null character of the end of the supplied buffer marks the end of the replacement.</param>
-    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements or, consequently, retain any content from the previous iteration.</param>
-    public void ReplaceAll(PcreRegex regex, int bufferSize, StringBufferWriter writeReplacementAction)
+    /// <param name="writeReplacementAction">A <see cref="StringWeaverWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements or, consequently, retain any content from the previous iteration.</param>
+    public void ReplaceAll(PcreRegex regex, int bufferSize, StringWeaverWriter writeReplacementAction)
     {
         if (regex is null)
         {
@@ -733,8 +733,8 @@ public sealed partial class StringBuffer
     /// </summary>
     /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
     /// <param name="length">The exact length of the replacement content.</param>
-    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer.</param>
-    public void ReplaceExact(PcreRegex regex, int length, StringBufferWriter writeReplacementAction)
+    /// <param name="writeReplacementAction">A <see cref="StringWeaverWriter"/> that writes the replacement content to the buffer.</param>
+    public void ReplaceExact(PcreRegex regex, int length, StringWeaverWriter writeReplacementAction)
     {
         if (regex is null)
         {
@@ -767,8 +767,8 @@ public sealed partial class StringBuffer
     /// </summary>
     /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
     /// <param name="length">The exact length of the replacement content.</param>
-    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements.</param>
-    public void ReplaceAllExact(PcreRegex regex, int length, StringBufferWriter writeReplacementAction)
+    /// <param name="writeReplacementAction">A <see cref="StringWeaverWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements.</param>
+    public void ReplaceAllExact(PcreRegex regex, int length, StringWeaverWriter writeReplacementAction)
     {
         if (regex is null)
         {
@@ -847,8 +847,8 @@ public sealed partial class StringBuffer
     /// </summary>
     /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
     /// <param name="bufferSize">The maximum length any single replacement will be. The first null character of the end of the supplied buffer marks the end of the replacement.</param>
-    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer.</param>
-    public void Replace(Regex regex, int bufferSize, StringBufferWriter writeReplacementAction)
+    /// <param name="writeReplacementAction">A <see cref="StringWeaverWriter"/> that writes the replacement content to the buffer.</param>
+    public void Replace(Regex regex, int bufferSize, StringWeaverWriter writeReplacementAction)
     {
         ArgumentNullException.ThrowIfNull(regex);
         if (bufferSize < 0)
@@ -882,8 +882,8 @@ public sealed partial class StringBuffer
     /// </summary>
     /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
     /// <param name="bufferSize">The maximum length any single replacement will be. The first null character of the end of the supplied buffer marks the end of the replacement.</param>
-    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements or, consequently, retain any content from the previous iteration.</param>
-    public void ReplaceAll(Regex regex, int bufferSize, StringBufferWriter writeReplacementAction)
+    /// <param name="writeReplacementAction">A <see cref="StringWeaverWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements or, consequently, retain any content from the previous iteration.</param>
+    public void ReplaceAll(Regex regex, int bufferSize, StringWeaverWriter writeReplacementAction)
     {
         ArgumentNullException.ThrowIfNull(regex);
         if (bufferSize < 0)
@@ -921,8 +921,8 @@ public sealed partial class StringBuffer
     /// </summary>
     /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
     /// <param name="length">The exact length of the replacement content.</param>
-    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer.</param>
-    public void ReplaceExact(Regex regex, int length, StringBufferWriter writeReplacementAction)
+    /// <param name="writeReplacementAction">A <see cref="StringWeaverWriter"/> that writes the replacement content to the buffer.</param>
+    public void ReplaceExact(Regex regex, int length, StringWeaverWriter writeReplacementAction)
     {
         ArgumentNullException.ThrowIfNull(regex);
         if (length < 0)
@@ -949,8 +949,8 @@ public sealed partial class StringBuffer
     /// </summary>
     /// <param name="regex">The <see cref="Regex"/> to match against the buffer.</param>
     /// <param name="length">The exact length of the replacement content.</param>
-    /// <param name="writeReplacementAction">A <see cref="StringBufferWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements.</param>
-    public void ReplaceAllExact(Regex regex, int length, StringBufferWriter writeReplacementAction)
+    /// <param name="writeReplacementAction">A <see cref="StringWeaverWriter"/> that writes the replacement content to the buffer. The method must not assume that the buffer will be reused for subsequent replacements.</param>
+    public void ReplaceAllExact(Regex regex, int length, StringWeaverWriter writeReplacementAction)
     {
         ArgumentNullException.ThrowIfNull(regex);
         if (length < 0)
@@ -1226,7 +1226,7 @@ public sealed partial class StringBuffer
         if (Length + written > buffer.Length)
         {
             throw new ArgumentOutOfRangeException(nameof(written),
-                $"Cannot expand beyond the current capacity of the buffer. This might indicate misuse of {nameof(StringBuffer)}.{nameof(Expand)} since any call to it should be preceded by a method that directly or indirectly grows the buffer.");
+                $"Cannot expand beyond the current capacity of the buffer. This might indicate misuse of {nameof(StringWeaver)}.{nameof(Expand)} since any call to it should be preceded by a method that directly or indirectly grows the buffer.");
         }
         Length += written;
     }
@@ -1265,36 +1265,36 @@ public sealed partial class StringBuffer
 
     #region .ctors
     /// <summary>
-    /// Initializes a new <see cref="StringBuffer"/> with the default capacity of 256.
+    /// Initializes a new <see cref="StringWeaver"/> with the default capacity of 256.
     /// </summary>
-    public StringBuffer() : this(ReadOnlySpan<char>.Empty, DefaultCapacity) { }
+    public StringWeaver() : this(ReadOnlySpan<char>.Empty, DefaultCapacity) { }
     /// <summary>
-    /// Initializes a new <see cref="StringBuffer"/> with the specified capacity.
+    /// Initializes a new <see cref="StringWeaver"/> with the specified capacity.
     /// </summary>
     /// <param name="capacity">The initial capacity of the buffer's backing array.</param>
-    public StringBuffer(int capacity) : this(ReadOnlySpan<char>.Empty, capacity) { }
+    public StringWeaver(int capacity) : this(ReadOnlySpan<char>.Empty, capacity) { }
     /// <summary>
-    /// Initializes a new <see cref="StringBuffer"/> with the specified initial content.
+    /// Initializes a new <see cref="StringWeaver"/> with the specified initial content.
     /// </summary>
     /// <param name="initialContent">A <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> that will be copied into the buffer.</param>
-    public StringBuffer(string initialContent) : this(initialContent.AsSpan(), initialContent.Length) { }
+    public StringWeaver(string initialContent) : this(initialContent.AsSpan(), initialContent.Length) { }
     /// <summary>
-    /// Initializes a new <see cref="StringBuffer"/> with the specified initial content and capacity.
+    /// Initializes a new <see cref="StringWeaver"/> with the specified initial content and capacity.
     /// </summary>
     /// <param name="initialContent">The initial content to copy into the buffer.</param>
     /// <param name="capacity">The initial capacity of the buffer's backing array. Must not be less than the length of <paramref name="initialContent"/>.</param>
-    public StringBuffer(string initialContent, int capacity) : this(initialContent.AsSpan(), capacity) { }
+    public StringWeaver(string initialContent, int capacity) : this(initialContent.AsSpan(), capacity) { }
     /// <summary>
-    /// Initializes a new <see cref="StringBuffer"/> with the specified initial content.
+    /// Initializes a new <see cref="StringWeaver"/> with the specified initial content.
     /// </summary>
     /// <param name="initialContent">A <see cref="ReadOnlySpan{T}"/> of <see langword="char"/> that will be copied into the buffer.</param>
-    public StringBuffer(ReadOnlySpan<char> initialContent) : this(initialContent, initialContent.Length) { }
+    public StringWeaver(ReadOnlySpan<char> initialContent) : this(initialContent, initialContent.Length) { }
     /// <summary>
-    /// Initializes a new <see cref="StringBuffer"/> with the specified initial content and capacity.
+    /// Initializes a new <see cref="StringWeaver"/> with the specified initial content and capacity.
     /// </summary>
     /// <param name="initialContent">The initial content to copy into the buffer.</param>
     /// <param name="capacity">The initial capacity of the buffer's backing array. Must not be less than the length of <paramref name="initialContent"/>.</param>
-    public StringBuffer(ReadOnlySpan<char> initialContent, int capacity)
+    public StringWeaver(ReadOnlySpan<char> initialContent, int capacity)
     {
         if (capacity < initialContent.Length)
         {
@@ -1314,10 +1314,10 @@ public sealed partial class StringBuffer
         }
     }
     /// <summary>
-    /// Initializes a new <see cref="StringBuffer"/> as an independent copy of another <see cref="StringBuffer"/>.
+    /// Initializes a new <see cref="StringWeaver"/> as an independent copy of another <see cref="StringWeaver"/>.
     /// </summary>
-    /// <param name="other">The <see cref="StringBuffer"/> to copy from.</param>
-    public StringBuffer(StringBuffer other)
+    /// <param name="other">The <see cref="StringWeaver"/> to copy from.</param>
+    public StringWeaver(StringWeaver other)
     {
         if (other is null)
         {
@@ -1393,6 +1393,6 @@ internal static class Extensions
 }
 
 /// <summary>
-/// [Experimental] Unsafe sibling implementation of <see cref="StringBuffer"/> that utilizes unmanaged memory to alleviate GC pressure for very large buffers.
+/// [Experimental] Unsafe sibling implementation of <see cref="StringWeaver"/> that utilizes unmanaged memory to alleviate GC pressure for very large buffers.
 /// </summary>
-internal sealed class UnsafeStringBuffer;
+internal sealed class UnsafeStringWeaver;

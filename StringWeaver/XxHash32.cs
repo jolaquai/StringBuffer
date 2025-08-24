@@ -1,7 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace StringBuffer;
+namespace StringWeaver;
 
 internal static class XxHash32
 {

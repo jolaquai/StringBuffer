@@ -15,8 +15,7 @@
       <PackageReference Include="xunit.v3" Version="3.0.1" />
       <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
       <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
-
-      <ProjectReference Include="$(SolutionDir)StringBuffer/StringBuffer.csproj" />
+      <ProjectReference Include="$(SolutionDir)StringWeaver\StringWeaver.csproj" />
   </ItemGroup>
 
 </Project>

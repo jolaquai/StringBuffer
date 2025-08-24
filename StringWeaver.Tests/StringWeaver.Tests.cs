@@ -9,15 +9,15 @@ using Xunit.v3;
 using PCRE;
 #endif
 
-namespace StringBuffer.Tests;
+namespace StringWeaver.Tests;
 
-public class StringBufferTests
+public class StringWeaverTests
 {
     #region Constructor Tests
     [Fact]
     public void Constructor_Default_CreatesEmptyBuffer()
     {
-        var sb = new StringBuffer();
+        var sb = new StringWeaver();
         Assert.Equal(0, sb.Length);
         Assert.True(sb.Capacity >= 256); // Default capacity
         Assert.Equal(string.Empty, sb.ToString());
@@ -26,7 +26,7 @@ public class StringBufferTests
     [Fact]
     public void Constructor_WithCapacity_CreatesBufferWithSpecifiedCapacity()
     {
-        var sb = new StringBuffer(512);
+        var sb = new StringWeaver(512);
         Assert.Equal(0, sb.Length);
         Assert.True(sb.Capacity >= 512);
     }
@@ -34,7 +34,7 @@ public class StringBufferTests
     [Fact]
     public void Constructor_WithInitialContent_CopiesContent()
     {
-        var sb = new StringBuffer("Hello");
+        var sb = new StringWeaver("Hello");
         Assert.Equal(5, sb.Length);
         Assert.Equal("Hello", sb.ToString());
     }
@@ -42,7 +42,7 @@ public class StringBufferTests
     [Fact]
     public void Constructor_WithInitialContentAndCapacity_CreatesBufferWithBoth()
     {
-        var sb = new StringBuffer("Test".AsSpan(), 100);
+        var sb = new StringWeaver("Test".AsSpan(), 100);
         Assert.Equal(4, sb.Length);
         Assert.True(sb.Capacity >= 100);
         Assert.Equal("Test", sb.ToString());
@@ -52,14 +52,14 @@ public class StringBufferTests
     public void Constructor_WithCapacityLessThanContent_ThrowsException()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new StringBuffer("Hello".AsSpan(), 2));
+            new StringWeaver("Hello".AsSpan(), 2));
     }
 
     [Fact]
     public void Constructor_Copy_CreatesIndependentCopy()
     {
-        var original = new StringBuffer("Original");
-        var copy = new StringBuffer(original);
+        var original = new StringWeaver("Original");
+        var copy = new StringWeaver(original);
 
         Assert.Equal("Original", copy.ToString());
 
@@ -71,7 +71,7 @@ public class StringBufferTests
     [Fact]
     public void Constructor_CopyNull_ThrowsException()
     {
-        Assert.Throws<ArgumentNullException>(() => new StringBuffer((StringBuffer)null));
+        Assert.Throws<ArgumentNullException>(() => new StringWeaver((StringWeaver)null));
     }
     #endregion
 
@@ -79,7 +79,7 @@ public class StringBufferTests
     [Fact]
     public void Append_Char_AddsToEnd()
     {
-        var sb = new StringBuffer();
+        var sb = new StringWeaver();
         sb.Append('A');
         sb.Append('B');
         Assert.Equal("AB", sb.ToString());
@@ -88,7 +88,7 @@ public class StringBufferTests
     [Fact]
     public void Append_Span_AddsToEnd()
     {
-        var sb = new StringBuffer();
+        var sb = new StringWeaver();
         sb.Append("Hello".AsSpan());
         sb.Append(" World".AsSpan());
         Assert.Equal("Hello World", sb.ToString());
@@ -97,7 +97,7 @@ public class StringBufferTests
     [Fact]
     public void Append_EmptySpan_DoesNothing()
     {
-        var sb = new StringBuffer("Test");
+        var sb = new StringWeaver("Test");
         sb.Append([]);
         Assert.Equal("Test", sb.ToString());
     }
@@ -105,7 +105,7 @@ public class StringBufferTests
     [Fact]
     public void Append_CausesGrowth_ExpandsBuffer()
     {
-        var sb = new StringBuffer(2);
+        var sb = new StringWeaver(2);
         sb.Append("This is a longer string");
         Assert.Equal("This is a longer string", sb.ToString());
     }
@@ -115,7 +115,7 @@ public class StringBufferTests
     [Fact]
     public void Indexer_Get_ReturnsCorrectChar()
     {
-        var sb = new StringBuffer("Hello");
+        var sb = new StringWeaver("Hello");
         Assert.Equal('H', sb[0]);
         Assert.Equal('o', sb[^1]);
         Assert.Equal('e', sb[1]);
@@ -124,7 +124,7 @@ public class StringBufferTests
     [Fact]
     public void Indexer_Set_ModifiesChar()
     {
-        var sb = new StringBuffer("Hello");
+        var sb = new StringWeaver("Hello");
         sb[0] = 'J';
         sb[^1] = 'y';
         Assert.Equal("Jelly", sb.ToString());
@@ -133,7 +133,7 @@ public class StringBufferTests
     [Fact]
     public void Indexer_OutOfBounds_ThrowsException()
     {
-        var sb = new StringBuffer("Test");
+        var sb = new StringWeaver("Test");
         Assert.Throws<IndexOutOfRangeException>(() => sb[5]);
         Assert.Throws<IndexOutOfRangeException>(() => sb[^5]);
     }
@@ -143,7 +143,7 @@ public class StringBufferTests
     [Fact]
     public void IndexOf_Char_FindsFirstOccurrence()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         Assert.Equal(2, sb.IndexOf('l'));
         Assert.Equal(6, sb.IndexOf('W'));
         Assert.Equal(-1, sb.IndexOf('z'));
@@ -152,7 +152,7 @@ public class StringBufferTests
     [Fact]
     public void IndexOf_CharWithStart_FindsFromPosition()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         Assert.Equal(3, sb.IndexOf('l', 3));
         Assert.Equal(9, sb.IndexOf('l', 4));
         Assert.Equal(-1, sb.IndexOf('H', 1));
@@ -161,7 +161,7 @@ public class StringBufferTests
     [Fact]
     public void IndexOf_Span_FindsFirstOccurrence()
     {
-        var sb = new StringBuffer("Hello World Hello");
+        var sb = new StringWeaver("Hello World Hello");
         Assert.Equal(0, sb.IndexOf("Hello".AsSpan()));
         Assert.Equal(6, sb.IndexOf("World".AsSpan()));
         Assert.Equal(-1, sb.IndexOf("Goodbye".AsSpan()));
@@ -170,7 +170,7 @@ public class StringBufferTests
     [Fact]
     public void IndexOf_SpanWithStart_FindsFromPosition()
     {
-        var sb = new StringBuffer("Hello World Hello");
+        var sb = new StringWeaver("Hello World Hello");
         Assert.Equal(12, sb.IndexOf("Hello".AsSpan(), 5));
         Assert.Equal(-1, sb.IndexOf("World".AsSpan(), 10));
     }
@@ -180,7 +180,7 @@ public class StringBufferTests
     [Fact]
     public void EnumerateIndicesOfUnsafe_Char_FindsAllOccurrences()
     {
-        var sb = new StringBuffer("abcabcabc");
+        var sb = new StringWeaver("abcabcabc");
         var indices = sb.EnumerateIndicesOfUnsafe('a').ToList();
         Assert.Equal(new[] { 0, 3, 6 }, indices);
     }
@@ -188,7 +188,7 @@ public class StringBufferTests
     [Fact]
     public void EnumerateIndicesOf_Char_DetectsModification()
     {
-        var sb = new StringBuffer("abcabc");
+        var sb = new StringWeaver("abcabc");
         var enumerator = sb.EnumerateIndicesOf('a').GetEnumerator();
 
         enumerator.MoveNext();
@@ -202,7 +202,7 @@ public class StringBufferTests
     [Fact]
     public void EnumerateIndicesOfUnsafe_Span_FindsAllOccurrences()
     {
-        var sb = new StringBuffer("ababab");
+        var sb = new StringWeaver("ababab");
         var indices = new List<int>();
         foreach (var idx in sb.EnumerateIndicesOfUnsafe("ab".AsSpan()))
         {
@@ -218,7 +218,7 @@ public class StringBufferTests
 #pragma warning disable IDE0022 // Use expression body for method
         Assert.Throws<InvalidOperationException>(() =>
         {
-            var sb = new StringBuffer("ababab");
+            var sb = new StringWeaver("ababab");
             var enumerator = sb.EnumerateIndicesOf("ab".AsSpan()).GetEnumerator();
 
             enumerator.MoveNext();
@@ -235,7 +235,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_CharToChar_ReplacesFirst()
     {
-        var sb = new StringBuffer("Hello");
+        var sb = new StringWeaver("Hello");
         sb.Replace('l', 'w');
         Assert.Equal("Hewlo", sb.ToString());
     }
@@ -243,7 +243,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_SpanToSpan_SameLength()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         sb.Replace("World".AsSpan(), "Earth".AsSpan());
         Assert.Equal("Hello Earth", sb.ToString());
     }
@@ -251,7 +251,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_SpanToSpan_Shorter()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         sb.Replace("World".AsSpan(), "You".AsSpan());
         Assert.Equal("Hello You", sb.ToString());
     }
@@ -259,7 +259,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_SpanToSpan_Longer()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         sb.Replace("World".AsSpan(), "Universe".AsSpan());
         Assert.Equal("Hello Universe", sb.ToString());
     }
@@ -267,7 +267,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_SpanToEmpty_RemovesText()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         sb.Replace("World".AsSpan(), []);
         Assert.Equal("Hello ", sb.ToString());
     }
@@ -275,7 +275,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_Range_ReplacesSpecifiedRange()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         sb.Replace(6..11, "Earth".AsSpan());
         Assert.Equal("Hello Earth", sb.ToString());
     }
@@ -283,7 +283,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_IndexLength_ReplacesSpecifiedRange()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         sb.Replace(0, 5, "Goodbye".AsSpan());
         Assert.Equal("Goodbye World", sb.ToString());
     }
@@ -291,7 +291,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_InvalidRange_ThrowsException()
     {
-        var sb = new StringBuffer("Test");
+        var sb = new StringWeaver("Test");
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             sb.Replace(-1, 2, "X".AsSpan()));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
@@ -303,7 +303,7 @@ public class StringBufferTests
     [Fact]
     public void ReplaceAll_CharToChar_ReplacesAll()
     {
-        var sb = new StringBuffer("Hello");
+        var sb = new StringWeaver("Hello");
         sb.ReplaceAll('l', 'w');
         Assert.Equal("Hewwo", sb.ToString());
     }
@@ -311,7 +311,7 @@ public class StringBufferTests
     [Fact]
     public void ReplaceAll_SameChar_DoesNothing()
     {
-        var sb = new StringBuffer("Hello");
+        var sb = new StringWeaver("Hello");
         sb.ReplaceAll('l', 'l');
         Assert.Equal("Hello", sb.ToString());
     }
@@ -319,7 +319,7 @@ public class StringBufferTests
     [Fact]
     public void ReplaceAll_SpanToSpan_ReplacesAll()
     {
-        var sb = new StringBuffer("abc abc abc");
+        var sb = new StringWeaver("abc abc abc");
         sb.ReplaceAll("abc".AsSpan(), "xyz".AsSpan());
         Assert.Equal("xyz xyz xyz", sb.ToString());
     }
@@ -327,7 +327,7 @@ public class StringBufferTests
     [Fact]
     public void ReplaceAll_SpanToShorter_CompactsText()
     {
-        var sb = new StringBuffer("Hello World Hello World");
+        var sb = new StringWeaver("Hello World Hello World");
         sb.ReplaceAll("World".AsSpan(), "W".AsSpan());
         Assert.Equal("Hello W Hello W", sb.ToString());
     }
@@ -335,7 +335,7 @@ public class StringBufferTests
     [Fact]
     public void ReplaceAll_SpanToLonger_ExpandsText()
     {
-        var sb = new StringBuffer("a b a b");
+        var sb = new StringWeaver("a b a b");
         sb.ReplaceAll("a".AsSpan(), "aaa".AsSpan());
         Assert.Equal("aaa b aaa b", sb.ToString());
     }
@@ -343,7 +343,7 @@ public class StringBufferTests
     [Fact]
     public void ReplaceAll_EmptyFrom_ThrowsException()
     {
-        var sb = new StringBuffer("Test");
+        var sb = new StringWeaver("Test");
         Assert.Throws<ArgumentException>(() =>
             sb.ReplaceAll([], "X".AsSpan()));
     }
@@ -353,7 +353,7 @@ public class StringBufferTests
     [Fact]
     public void Remove_Range_RemovesSpecifiedRange()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         sb.Remove(5..11);
         Assert.Equal("Hello", sb.ToString());
     }
@@ -361,7 +361,7 @@ public class StringBufferTests
     [Fact]
     public void Remove_IndexLength_RemovesSpecifiedRange()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         sb.Remove(0, 6);
         Assert.Equal("World", sb.ToString());
     }
@@ -371,7 +371,7 @@ public class StringBufferTests
     [Fact]
     public void Trim_Char_RemovesFromBothEnds()
     {
-        var sb = new StringBuffer("***Hello***");
+        var sb = new StringWeaver("***Hello***");
         sb.Trim('*');
         Assert.Equal("Hello", sb.ToString());
     }
@@ -379,7 +379,7 @@ public class StringBufferTests
     [Fact]
     public void TrimStart_Char_RemovesFromStart()
     {
-        var sb = new StringBuffer("   Hello");
+        var sb = new StringWeaver("   Hello");
         sb.TrimStart(' ');
         Assert.Equal("Hello", sb.ToString());
     }
@@ -387,7 +387,7 @@ public class StringBufferTests
     [Fact]
     public void TrimEnd_Char_RemovesFromEnd()
     {
-        var sb = new StringBuffer("Hello   ");
+        var sb = new StringWeaver("Hello   ");
         sb.TrimEnd(' ');
         Assert.Equal("Hello", sb.ToString());
     }
@@ -395,7 +395,7 @@ public class StringBufferTests
     [Fact]
     public void Trim_Span_RemovesAnyFromBothEnds()
     {
-        var sb = new StringBuffer("*#*Hello*#*");
+        var sb = new StringWeaver("*#*Hello*#*");
         sb.Trim("*#".AsSpan());
         Assert.Equal("Hello", sb.ToString());
     }
@@ -403,7 +403,7 @@ public class StringBufferTests
     [Fact]
     public void TrimSequence_RemovesExactSequence()
     {
-        var sb = new StringBuffer("ababHelloabab");
+        var sb = new StringWeaver("ababHelloabab");
         sb.TrimSequence("ab".AsSpan());
         Assert.Equal("Hello", sb.ToString());
     }
@@ -411,7 +411,7 @@ public class StringBufferTests
     [Fact]
     public void TrimSequenceStart_RemovesFromStart()
     {
-        var sb = new StringBuffer("xyxyHello");
+        var sb = new StringWeaver("xyxyHello");
         sb.TrimSequenceStart("xy".AsSpan());
         Assert.Equal("Hello", sb.ToString());
     }
@@ -419,7 +419,7 @@ public class StringBufferTests
     [Fact]
     public void TrimSequenceEnd_RemovesFromEnd()
     {
-        var sb = new StringBuffer("Helloxyxy");
+        var sb = new StringWeaver("Helloxyxy");
         sb.TrimSequenceEnd("xy".AsSpan());
         Assert.Equal("Hello", sb.ToString());
     }
@@ -429,7 +429,7 @@ public class StringBufferTests
     [Fact]
     public void Truncate_ReducesLength()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         sb.Truncate(5);
         Assert.Equal(5, sb.Length);
         Assert.Equal("Hello", sb.ToString());
@@ -438,7 +438,7 @@ public class StringBufferTests
     [Fact]
     public void Truncate_InvalidLength_ThrowsException()
     {
-        var sb = new StringBuffer("Test");
+        var sb = new StringWeaver("Test");
         Assert.Throws<ArgumentOutOfRangeException>(() => sb.Truncate(-1));
         Assert.Throws<ArgumentOutOfRangeException>(() => sb.Truncate(10));
     }
@@ -446,7 +446,7 @@ public class StringBufferTests
     [Fact]
     public void Trim_Count_RemovesFromEnd()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         sb.Trim(6);
         Assert.Equal("Hello", sb.ToString());
     }
@@ -454,7 +454,7 @@ public class StringBufferTests
     [Fact]
     public void Expand_IncreasesLength()
     {
-        var sb = new StringBuffer("Hello");
+        var sb = new StringWeaver("Hello");
         var span = sb.GetWritableSpan(10);
         " World".AsSpan().CopyTo(span);
         sb.Expand(6);
@@ -464,7 +464,7 @@ public class StringBufferTests
     [Fact]
     public void GetWritableSpan_ReturnsWritableArea()
     {
-        var sb = new StringBuffer("Hello");
+        var sb = new StringWeaver("Hello");
         var span = sb.GetWritableSpan(10);
         Assert.True(span.Length >= 10);
 
@@ -476,7 +476,7 @@ public class StringBufferTests
     [Fact]
     public void EnsureCapacity_GrowsBuffer()
     {
-        var sb = new StringBuffer(10);
+        var sb = new StringWeaver(10);
         sb.EnsureCapacity(100);
         Assert.True(sb.Capacity >= 100);
     }
@@ -486,7 +486,7 @@ public class StringBufferTests
     [Fact]
     public void Clear_ResetsLength()
     {
-        var sb = new StringBuffer("Hello World");
+        var sb = new StringWeaver("Hello World");
         var capacity = sb.Capacity;
         sb.Clear();
 
@@ -498,7 +498,7 @@ public class StringBufferTests
     [Fact]
     public void Clear_WithWipe_ClearsContent()
     {
-        var sb = new StringBuffer("Sensitive Data");
+        var sb = new StringWeaver("Sensitive Data");
         sb.Clear(true);
 
         Assert.Equal(0, sb.Length);
@@ -510,7 +510,7 @@ public class StringBufferTests
     [Fact]
     public void Properties_CorrectValues()
     {
-        var sb = new StringBuffer("Hello");
+        var sb = new StringWeaver("Hello");
 
         Assert.Equal(5, sb.Length);
         Assert.True(sb.Capacity >= 5);
@@ -524,7 +524,7 @@ public class StringBufferTests
     [Fact]
     public void Span_ReturnsCurrentContent()
     {
-        var sb = new StringBuffer("Hello");
+        var sb = new StringWeaver("Hello");
         var span = sb.Span;
 
         Assert.Equal(5, span.Length);
@@ -541,7 +541,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_Regex_ReplacesFirst()
     {
-        var sb = new StringBuffer("Hello 123 World 456");
+        var sb = new StringWeaver("Hello 123 World 456");
         var regex = new Regex(@"\d+");
         sb.Replace(regex, "XXX".AsSpan());
         Assert.Equal("Hello XXX World 456", sb.ToString());
@@ -550,7 +550,7 @@ public class StringBufferTests
     [Fact]
     public void ReplaceAll_Regex_ReplacesAll()
     {
-        var sb = new StringBuffer("Hello 123 World 456");
+        var sb = new StringWeaver("Hello 123 World 456");
         var regex = new Regex(@"\d+");
         sb.ReplaceAll(regex, "XXX".AsSpan());
         Assert.Equal("Hello XXX World XXX", sb.ToString());
@@ -559,7 +559,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_RegexWithAction_UsesReplacementAction()
     {
-        var sb = new StringBuffer("Hello 123 World");
+        var sb = new StringWeaver("Hello 123 World");
         var regex = new Regex(@"\d+");
         sb.Replace(regex, 10, (buffer, match) =>
         {
@@ -572,7 +572,7 @@ public class StringBufferTests
     [Fact]
     public void ReplaceExact_Regex_ReplacesWithExactLength()
     {
-        var sb = new StringBuffer("Hello 123 World");
+        var sb = new StringWeaver("Hello 123 World");
         var regex = new Regex(@"\d+");
         sb.ReplaceExact(regex, 5, (buffer, match) =>
         {
@@ -584,7 +584,7 @@ public class StringBufferTests
     [Fact]
     public void Replace_PcreRegex_ReplacesFirst()
     {
-        var sb = new StringBuffer("Hello 123 World 456");
+        var sb = new StringWeaver("Hello 123 World 456");
         var regex = new PcreRegex(@"\d+");
         sb.Replace(regex, "XXX".AsSpan());
         Assert.Equal("Hello XXX World 456", sb.ToString());
@@ -593,7 +593,7 @@ public class StringBufferTests
     [Fact]
     public void ReplaceAll_PcreRegex_ReplacesAll()
     {
-        var sb = new StringBuffer("Hello 123 World 456");
+        var sb = new StringWeaver("Hello 123 World 456");
         var regex = new PcreRegex(@"\d+");
         sb.ReplaceAll(regex, "XXX".AsSpan());
         Assert.Equal("Hello XXX World XXX", sb.ToString());
@@ -606,7 +606,7 @@ public class StringBufferTests
     [Fact]
     public void Append_SpanFormattable_AppendsFormatted()
     {
-        var sb = new StringBuffer("Value: ");
+        var sb = new StringWeaver("Value: ");
         sb.Append(123.456, "F2".AsSpan());
         Assert.Equal("Value: 123.46", sb.ToString());
     }
@@ -614,7 +614,7 @@ public class StringBufferTests
     [Fact]
     public void Append_SpanFormattableWithProvider_UsesProvider()
     {
-        var sb = new StringBuffer("Date: ");
+        var sb = new StringWeaver("Date: ");
         var date = new DateTime(2024, 1, 15);
         sb.Append(date, "d".AsSpan(), System.Globalization.CultureInfo.InvariantCulture);
         Assert.Equal("Date: 01/15/2024", sb.ToString());
@@ -626,7 +626,7 @@ public class StringBufferTests
     [Fact]
     public void LargeBuffer_HandlesCorrectly()
     {
-        var sb = new StringBuffer();
+        var sb = new StringWeaver();
         var largeString = new string('X', 10000);
         sb.Append(largeString.AsSpan());
 
@@ -637,7 +637,7 @@ public class StringBufferTests
     [Fact]
     public void MultipleGrows_MaintainsContent()
     {
-        var sb = new StringBuffer(2);
+        var sb = new StringWeaver(2);
         for (var i = 0; i < 100; i++)
         {
             sb.Append($"Item{i} ".AsSpan());
@@ -650,7 +650,7 @@ public class StringBufferTests
     [Fact]
     public void ComplexOperationSequence_ProducesCorrectResult()
     {
-        var sb = new StringBuffer("  Hello World  ");
+        var sb = new StringWeaver("  Hello World  ");
         sb.Trim(' ');
         sb.Replace("World".AsSpan(), "Universe".AsSpan());
         sb.Append("!");
@@ -662,7 +662,7 @@ public class StringBufferTests
     [Fact]
     public void ReplaceAll_OverlappingPatterns_HandlesCorrectly()
     {
-        var sb = new StringBuffer("aaaa");
+        var sb = new StringWeaver("aaaa");
         var chars = new char[] { 'a', 'a' };
         sb.ReplaceAll(chars.AsSpan(), chars.AsSpan());
         Assert.Equal("aaaa", sb.ToString());
@@ -671,7 +671,7 @@ public class StringBufferTests
     [Fact]
     public void EmptyBuffer_OperationsHandleGracefully()
     {
-        var sb = new StringBuffer();
+        var sb = new StringWeaver();
 
         sb.Trim(' ');
         sb.TrimStart('x');

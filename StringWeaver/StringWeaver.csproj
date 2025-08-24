@@ -10,11 +10,26 @@
   </PropertyGroup>
 
   <PropertyGroup>
+      <AssemblyName>StringWeaver</AssemblyName>
       <Version>1.0.0</Version>
       <AssemblyVersion>$(Version)</AssemblyVersion>
       <FileVersion>$(Version)</FileVersion>
       <IsPackable>True</IsPackable>
-      <IncludeSymbols>True</IncludeSymbols>
+      <PackageId>StringWeaver</PackageId>
+      <Authors>jolaquai</Authors>
+      <PackageProjectUrl>https://github.com/jolaquai/StringWeaver</PackageProjectUrl>
+      <RepositoryUrl>https://github.com/jolaquai/StringWeaver</RepositoryUrl>
+      <RepositoryType>git</RepositoryType>
+      <PackageTags>string;stringbuilder;performance;buffer</PackageTags>
+      <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
+
+      <IncludeSymbols>true</IncludeSymbols>
+      <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  
+      <EmbedUntrackedSources>true</EmbedUntrackedSources>
+      <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  
+      <Deterministic>true</Deterministic>
 
       <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">True</GeneratePackageOnBuild>
   </PropertyGroup>
@@ -26,6 +41,7 @@
   </ItemGroup>
   <ItemGroup>
       <PackageReference Include="PCRE.NET" Version="1.2.0" />
+      <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
   </ItemGroup>
 
 </Project>
