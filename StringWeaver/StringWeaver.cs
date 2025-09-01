@@ -717,6 +717,9 @@ public sealed partial class StringWeaver
         var start = 0;
         while ((match = matchBuffer.Match(Span, start)).Success)
         {
+            // Clear the buffer, otherwise previous iteration's data may bleed through if the new content is shorter
+            buffer.Clear();
+
             writeReplacementAction(buffer, Span.Slice(match));
             var endIdx = buffer.IndexOf('\0');
             var to = buffer;
@@ -792,6 +795,8 @@ public sealed partial class StringWeaver
 
         using var matchBuffer = regex.CreateMatchBuffer();
         Span<char> buffer = length <= SafeCharStackalloc ? stackalloc char[length] : new char[length];
+        buffer.Clear();
+
         PcreRefMatch match;
         var start = 0;
         while ((match = matchBuffer.Match(Span, start)).Success)
@@ -901,6 +906,9 @@ public sealed partial class StringWeaver
         var currentEnumerator = regex.EnumerateMatches(Span);
         foreach (var vm in currentEnumerator)
         {
+            // Clear the buffer, otherwise previous iteration's data may bleed through if the new content is shorter
+            buffer.Clear();
+
             writeReplacementAction(buffer, Span.Slice(vm));
             var endIdx = buffer.IndexOf('\0');
             var to = buffer;
@@ -968,6 +976,9 @@ public sealed partial class StringWeaver
         var currentEnumerator = regex.EnumerateMatches(Span);
         foreach (var vm in currentEnumerator)
         {
+            // Clear the buffer, otherwise previous iteration's data may bleed through if the new content is shorter
+            buffer.Clear();
+
             writeReplacementAction(buffer, Span.Slice(vm));
             ReplaceCore(vm.Index, vm.Length, buffer);
             if (buffer.Length != vm.Length)
