@@ -22,7 +22,7 @@
       <RepositoryType>git</RepositoryType>
       <PackageTags>string;stringbuilder;performance;buffer</PackageTags>
       <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
-      <PackageReadmeFile>$(SolutionDir)readme.md</PackageReadmeFile>
+      <PackageReadmeFile>readme.md</PackageReadmeFile>
 
       <IncludeSymbols>true</IncludeSymbols>
       <SymbolPackageFormat>snupkg</SymbolPackageFormat>
@@ -42,11 +42,11 @@
   </ItemGroup>
   <ItemGroup>
       <PackageReference Include="PCRE.NET" Version="1.2.0" />
-      <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+      <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
   </ItemGroup>
   
   <ItemGroup>
-      <None Include="$(SolutionDir)readme.md" Pack="True" PackagePath="\"/>
+      <None Include="readme.md" Pack="True" PackagePath="\" />
   </ItemGroup>
 
 </Project>
