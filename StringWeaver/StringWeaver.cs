@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Diagnostics;
+using System.IO.Hashing;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -83,7 +84,7 @@ public sealed partial class StringWeaver
     {
         private readonly StringWeaver _buffer;
         private readonly ReadOnlySpan<char> _value;
-        private readonly uint _hash;
+        private readonly ulong _hash;
         private int nextSearchIndex;
 
         internal IndexEnumerator(StringWeaver buffer, ReadOnlySpan<char> value, int start)
@@ -92,7 +93,7 @@ public sealed partial class StringWeaver
             _value = value;
             Current = -1;
             nextSearchIndex = start;
-            _hash = XxHash32.Hash(MemoryMarshal.Cast<char, byte>(_buffer.Span));
+            _hash = XxHash3.HashToUInt64(MemoryMarshal.Cast<char, byte>(_buffer.Span));
         }
 
         /// <summary>
@@ -110,7 +111,7 @@ public sealed partial class StringWeaver
             var index = _buffer.IndexOf(_value, nextSearchIndex);
             if (index != -1)
             {
-                if (_hash != XxHash32.Hash(MemoryMarshal.Cast<char, byte>(_buffer.Span)))
+                if (_hash != XxHash3.HashToUInt64(MemoryMarshal.Cast<char, byte>(_buffer.Span)))
                 {
                     throw new InvalidOperationException("The buffer was modified; enumeration may not continue.");
                 }
@@ -346,10 +347,10 @@ public sealed partial class StringWeaver
     public IEnumerable<int> EnumerateIndicesOf(char value, int start = 0)
     {
         var index = start;
-        var bufHash = XxHash32.Hash(MemoryMarshal.Cast<char, byte>(Span));
+        var bufHash = XxHash3.HashToUInt64(MemoryMarshal.Cast<char, byte>(Span));
         while ((index = IndexOf(value, index)) != -1)
         {
-            if (bufHash != XxHash32.Hash(MemoryMarshal.Cast<char, byte>(Span)))
+            if (bufHash != XxHash3.HashToUInt64(MemoryMarshal.Cast<char, byte>(Span)))
             {
                 throw new InvalidOperationException("The buffer was modified during enumeration.");
             }
